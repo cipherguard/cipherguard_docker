@@ -1,0 +1,4 @@
+.rules:
+  rules:
+    - if: "$CI_COMMIT_BRANCH && $CIPHERGUARD_PUBLISH != $OPPOSITE_FLAVOUR"
+      when: on_success

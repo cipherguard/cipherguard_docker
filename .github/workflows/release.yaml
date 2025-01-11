@@ -1,0 +1,22 @@
+on:
+  push:
+    tags:
+      - "*"
+jobs:
+  create-shasums:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v3
+      - run: |
+          cd docker-compose
+          sha512sum docker-compose-ce.yaml > docker-compose-ce-SHA512SUM.txt &&
+          sha512sum docker-compose-pro.yaml > docker-compose-pro-SHA512SUM.txt &&
+          sha512sum ../dev/docker-compose-dev.yaml > docker-compose-dev-SHA512SUM.txt &&
+          sha512sum docker-compose-ce-postgresql.yaml > docker-compose-ce-postgresql-SHA512SUM.txt
+      - env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        name: Create Release
+        run: |
+          gh release create "${GITHUB_REF#refs/*/}" -t "${GITHUB_REF#refs/*/}" --notes-file RELEASE_NOTES.md docker-compose/docker-compose-*.yaml docker-compose/*SHA512SUM.txt

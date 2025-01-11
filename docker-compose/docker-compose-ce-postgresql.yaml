@@ -1,0 +1,46 @@
+services:
+  db:
+    image: postgres:latest
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: "cipherguard"
+      POSTGRES_USER: "cipherguard"
+      POSTGRES_PASSWORD: "P4ssb0lt"
+    volumes:
+      - database_volume:/var/lib/postgresql/data
+
+  cipherguard:
+    image: cipherguard/cipherguard:latest
+    #Alternatively you can use rootless:
+    #image: cipherguard/cipherguard:latest-ce-non-root
+    restart: unless-stopped
+    tty: true
+    depends_on:
+      - db
+    environment:
+      APP_FULL_BASE_URL: https://cipherguard.local
+      DATASOURCES_DEFAULT_DRIVER: Cake\Database\Driver\Postgres
+      DATASOURCES_DEFAULT_ENCODING: "utf8"
+      DATASOURCES_DEFAULT_URL: "postgres://cipherguard:P4ssb0lt@db:5432/cipherguard?schema=cipherguard"
+      EMAIL_TRANSPORT_DEFAULT_HOST: "smtp.domain.tld"
+      EMAIL_TRANSPORT_DEFAULT_PORT: 587
+    volumes:
+      - gpg_volume:/etc/cipherguard/gpg
+      - jwt_volume:/etc/cipherguard/jwt
+      #- ./cert.pem:/etc/ssl/certs/certificate.crt:ro
+      #- ./key.pem:/etc/ssl/certs/certificate.key:ro
+      #- ./cert.pem:/etc/cipherguard/certs/certificate.crt:ro
+      #- ./key.pem:/etc/cipherguard/certs/certificate.key:ro
+    command: >
+      bash -c "/usr/bin/wait-for.sh -t 0 db:5432 -- /docker-entrypoint.sh"
+    ports:
+      - 80:80
+      - 443:443
+    #Alternatively for non-root images:
+    # - 80:8080
+    # - 443:4433
+
+volumes:
+  database_volume:
+  gpg_volume:
+  jwt_volume:

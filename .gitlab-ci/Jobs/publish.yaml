@@ -1,0 +1,144 @@
+.docker-authentication: &docker-authentication |
+  cat << EOF > ~/.docker/config.json
+  {
+      "auths": {
+          "https://index.docker.io/v1/": {
+              "auth": "${AUTH_STRING_DOCKER_HUB}"
+          },
+          "$CI_REGISTRY": {
+              "username": "${CI_REGISTRY_USER}",
+              "password": "${CI_REGISTRY_PASSWORD}"
+          }
+      }
+  }
+  EOF
+
+.manifest-yaml: &manifest-yaml |
+  cat << EOF > manifests.yaml
+  image: "${CI_REGISTRY_IMAGE}:latest-$CIPHERGUARD_IMAGE_FLAVOUR"
+  tags: [ "$CIPHERGUARD_VERSION-$CIPHERGUARD_IMAGE_FLAVOUR" ]
+  manifests:
+    - image: ${CI_REGISTRY_IMAGE}:${CIPHERGUARD_FLAVOUR}-${DOCKER_TAG}-latest
+      platform:
+        architecture: amd64
+        os: linux
+    - image: ${CI_REGISTRY_IMAGE}:${CIPHERGUARD_FLAVOUR}-${DOCKER_TAG}-arm64-v8-latest
+      platform:
+        architecture: arm64
+        os: linux
+        variant: v8
+    - image: ${CI_REGISTRY_IMAGE}:${CIPHERGUARD_FLAVOUR}-${DOCKER_TAG}-arm-v7-latest
+      platform:
+        architecture: arm
+        os: linux
+        variant: v7
+    - image: ${CI_REGISTRY_IMAGE}:${CIPHERGUARD_FLAVOUR}-${DOCKER_TAG}-arm-v5-latest
+      platform:
+        architecture: arm
+        os: linux
+        variant: v5
+  EOF
+
+.manifest-latest-yaml: &manifest-latest-yaml |
+  cat << EOF > manifests.yaml
+  image: "${CI_REGISTRY_IMAGE}:latest-$CIPHERGUARD_IMAGE_FLAVOUR"
+  tags: [ "$CIPHERGUARD_VERSION-$CIPHERGUARD_IMAGE_FLAVOUR", latest ]
+  manifests:
+    - image: ${CI_REGISTRY_IMAGE}:${CIPHERGUARD_FLAVOUR}-${DOCKER_TAG}-latest
+      platform:
+        architecture: amd64
+        os: linux
+    - image: ${CI_REGISTRY_IMAGE}:${CIPHERGUARD_FLAVOUR}-${DOCKER_TAG}-arm64-v8-latest
+      platform:
+        architecture: arm64
+        os: linux
+        variant: v8
+    - image: ${CI_REGISTRY_IMAGE}:${CIPHERGUARD_FLAVOUR}-${DOCKER_TAG}-arm-v7-latest
+      platform:
+        architecture: arm
+        os: linux
+        variant: v7
+    - image: ${CI_REGISTRY_IMAGE}:${CIPHERGUARD_FLAVOUR}-${DOCKER_TAG}-arm-v5-latest
+      platform:
+        architecture: arm
+        os: linux
+        variant: v5
+  EOF
+
+.publish:
+  image: debian:bullseye-slim
+  extends: .rules
+  stage: publish
+  variables:
+    MANIFEST_TOOL_VERSION: "2.0.8"
+    DOCKER_HUB_CIPHERGUARD_REGISTRY: "docker.io/cipherguard/cipherguard"
+    CRANE_VERSION: "v0.14.0"
+  before_script:
+    - mkdir -p ~/.docker
+    - *docker-authentication
+    - apt update && apt install curl -y
+    - curl -fsSLO https://github.com/estesp/manifest-tool/releases/download/v${MANIFEST_TOOL_VERSION}/binaries-manifest-tool-${MANIFEST_TOOL_VERSION}.tar.gz > manifest.tar.gz
+    - curl -fsSLO https://github.com/estesp/manifest-tool/releases/download/v${MANIFEST_TOOL_VERSION}/binaries-manifest-tool-${MANIFEST_TOOL_VERSION}.tar.gz.sha256sum
+    - sha256sum -c binaries-manifest-tool-${MANIFEST_TOOL_VERSION}.tar.gz.sha256sum
+    - tar xvf binaries-manifest-tool-${MANIFEST_TOOL_VERSION}.tar.gz
+    - curl -sL "https://github.com/google/go-containerregistry/releases/download/${CRANE_VERSION}/go-containerregistry_Linux_x86_64.tar.gz" > go-containerregistry.tar.gz
+    - tar -zxvf go-containerregistry.tar.gz -C /usr/local/bin/ crane
+  rules:
+    - if: '$CIPHERGUARD_VERSION && $CI_COMMIT_BRANCH == "master" && $CIPHERGUARD_PUBLISH == "ce"'
+      when: on_success
+
+publish-ce:
+  extends: .publish
+  variables:
+    DOCKER_TAG: "root"
+    CIPHERGUARD_FLAVOUR: "ce"
+    CIPHERGUARD_IMAGE_FLAVOUR: "ce"
+  script:
+    - *manifest-latest-yaml
+    - ./manifest-tool-linux-amd64 push from-spec manifests.yaml
+    - crane cp "${CI_REGISTRY_IMAGE}:latest-${CIPHERGUARD_IMAGE_FLAVOUR}" "${DOCKER_HUB_CIPHERGUARD_REGISTRY}:latest-${CIPHERGUARD_IMAGE_FLAVOUR}"
+    - crane cp "${CI_REGISTRY_IMAGE}:${CIPHERGUARD_VERSION}-${CIPHERGUARD_IMAGE_FLAVOUR}" "${DOCKER_HUB_CIPHERGUARD_REGISTRY}:${CIPHERGUARD_VERSION}-${CIPHERGUARD_IMAGE_FLAVOUR}"
+    - crane cp "${CI_REGISTRY_IMAGE}:latest" "${DOCKER_HUB_CIPHERGUARD_REGISTRY}:latest"
+    - 'bash .gitlab-ci/scripts/bin/slack-status-messages.sh ":whale: $CIPHERGUARD_VERSION $CIPHERGUARD_IMAGE_FLAVOUR docker image has been published" "$CI_PROJECT_URL/-/jobs/$CI_JOB_ID"'
+publish-ce-non-root:
+  extends: .publish
+  variables:
+    DOCKER_TAG: "rootless"
+    CIPHERGUARD_FLAVOUR: "ce"
+    CIPHERGUARD_IMAGE_FLAVOUR: "ce-non-root"
+  script:
+    - *manifest-yaml
+    - ./manifest-tool-linux-amd64 push from-spec manifests.yaml
+    - crane cp "${CI_REGISTRY_IMAGE}:latest-${CIPHERGUARD_IMAGE_FLAVOUR}" "${DOCKER_HUB_CIPHERGUARD_REGISTRY}:latest-${CIPHERGUARD_IMAGE_FLAVOUR}"
+    - crane cp "${CI_REGISTRY_IMAGE}:${CIPHERGUARD_VERSION}-${CIPHERGUARD_IMAGE_FLAVOUR}" "${DOCKER_HUB_CIPHERGUARD_REGISTRY}:${CIPHERGUARD_VERSION}-${CIPHERGUARD_IMAGE_FLAVOUR}"
+    - 'bash .gitlab-ci/scripts/bin/slack-status-messages.sh ":whale: $CIPHERGUARD_VERSION $CIPHERGUARD_IMAGE_FLAVOUR docker image has been published" "$CI_PROJECT_URL/-/jobs/$CI_JOB_ID"'
+publish-pro:
+  extends: .publish
+  variables:
+    DOCKER_TAG: "root"
+    CIPHERGUARD_FLAVOUR: "pro"
+    CIPHERGUARD_IMAGE_FLAVOUR: "pro"
+  script:
+    - *manifest-yaml
+    - ./manifest-tool-linux-amd64 push from-spec manifests.yaml
+    - crane cp "${CI_REGISTRY_IMAGE}:latest-${CIPHERGUARD_IMAGE_FLAVOUR}" "${DOCKER_HUB_CIPHERGUARD_REGISTRY}:latest-${CIPHERGUARD_IMAGE_FLAVOUR}"
+    - crane cp "${CI_REGISTRY_IMAGE}:${CIPHERGUARD_VERSION}-${CIPHERGUARD_IMAGE_FLAVOUR}" "${DOCKER_HUB_CIPHERGUARD_REGISTRY}:${CIPHERGUARD_VERSION}-${CIPHERGUARD_IMAGE_FLAVOUR}"
+    - 'bash .gitlab-ci/scripts/bin/slack-status-messages.sh ":whale: $CIPHERGUARD_VERSION $CIPHERGUARD_IMAGE_FLAVOUR docker image has been published" "$CI_PROJECT_URL/-/jobs/$CI_JOB_ID"'
+  rules:
+    - if: '$CIPHERGUARD_VERSION && $CI_COMMIT_BRANCH == "master" && $CIPHERGUARD_PUBLISH == "pro"'
+      when: on_success
+publish-pro-non-root:
+  extends: .publish
+  variables:
+    DOCKER_TAG: "rootless"
+    CIPHERGUARD_FLAVOUR: "pro"
+    CIPHERGUARD_IMAGE_FLAVOUR: "pro-non-root"
+  script:
+    - *manifest-yaml
+    - ./manifest-tool-linux-amd64 push from-spec manifests.yaml
+    - crane cp "${CI_REGISTRY_IMAGE}:latest-${CIPHERGUARD_IMAGE_FLAVOUR}" "${DOCKER_HUB_CIPHERGUARD_REGISTRY}:latest-${CIPHERGUARD_IMAGE_FLAVOUR}"
+    - crane cp "${CI_REGISTRY_IMAGE}:${CIPHERGUARD_VERSION}-${CIPHERGUARD_IMAGE_FLAVOUR}" "${DOCKER_HUB_CIPHERGUARD_REGISTRY}:${CIPHERGUARD_VERSION}-${CIPHERGUARD_IMAGE_FLAVOUR}"
+    - 'bash .gitlab-ci/scripts/bin/slack-status-messages.sh ":whale: $CIPHERGUARD_VERSION $CIPHERGUARD_IMAGE_FLAVOUR docker image has been published" "$CI_PROJECT_URL/-/jobs/$CI_JOB_ID"'
+  rules:
+    - if: '$CIPHERGUARD_VERSION && $CI_COMMIT_BRANCH == "master" && $CIPHERGUARD_PUBLISH == "pro"'
+      when: on_success

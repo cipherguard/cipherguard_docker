@@ -1,0 +1,114 @@
+services:
+  - name: ${CI_DEPENDENCY_PROXY_DIRECT_GROUP_IMAGE_PREFIX}/docker:dind
+    alias: docker
+    command: ["--tls=false"]
+
+.test-images:
+  extends: .rules
+  stage: test
+  image: ${CI_DEPENDENCY_PROXY_DIRECT_GROUP_IMAGE_PREFIX}/ruby:slim-bookworm
+  script:
+    - |
+      bundle install
+      rake spec:$TEST_NAME
+  variables:
+    CIPHERGUARD_COMPONENT: stable
+    CIPHERGUARD_FLAVOUR: ce
+    OPPOSITE_FLAVOUR: pro
+
+.test-pro-images:
+  extends: .test-images
+  before_script:
+    - cat $SUBSCRIPTION_KEY > subscription_key.txt
+  variables:
+    CIPHERGUARD_COMPONENT: stable
+    CIPHERGUARD_FLAVOUR: pro
+    OPPOSITE_FLAVOUR: ce
+
+ce-docker-image:
+  extends: .test-images
+  variables:
+    TEST_NAME: docker_image
+
+ce-docker-runtime:
+  extends: .test-images
+  variables:
+    TEST_NAME: docker_runtime
+
+ce-docker-runtime-no-envs:
+  extends: .test-images
+  variables:
+    TEST_NAME: docker_runtime_no_envs
+
+ce-docker-runtime-with-cipherguard-php:
+  extends: .test-images
+  variables:
+    TEST_NAME: docker_runtime_with_cipherguard_php
+
+pro-docker-image:
+  extends: .test-pro-images
+  variables:
+    TEST_NAME: docker_image
+
+pro-docker-runtime:
+  extends: .test-pro-images
+  variables:
+    TEST_NAME: docker_runtime
+
+pro-docker-runtime-no-envs:
+  extends: .test-pro-images
+  variables:
+    TEST_NAME: docker_runtime_no_envs
+
+pro-docker-runtime-with-cipherguard-php:
+  extends: .test-images
+  variables:
+    TEST_NAME: docker_runtime_with_cipherguard_php
+
+ce-non-root-docker-image:
+  extends: .test-images
+  variables:
+    TEST_NAME: docker_image
+    ROOTLESS: "true"
+
+ce-non-root-docker-runtime:
+  extends: .test-images
+  variables:
+    TEST_NAME: docker_runtime
+    ROOTLESS: "true"
+
+ce-non-root-docker-runtime-no-envs:
+  extends: .test-images
+  variables:
+    TEST_NAME: docker_runtime_no_envs
+    ROOTLESS: "true"
+
+ce-non-root-docker-runtime-with-cipherguard-php:
+  extends: .test-images
+  variables:
+    TEST_NAME: docker_runtime_with_cipherguard_php
+    ROOTLESS: "true"
+
+pro-non-root-docker-image:
+  extends: .test-pro-images
+  variables:
+    TEST_NAME: docker_image
+    ROOTLESS: "true"
+
+pro-non-root-docker-runtime:
+  extends: .test-pro-images
+  variables:
+    TEST_NAME: docker_runtime
+    ROOTLESS: "true"
+
+pro-non-root-docker-runtime-no-envs:
+  extends: .test-pro-images
+  variables:
+    TEST_NAME: docker_runtime_no_envs
+    ROOTLESS: "true"
+
+pro-non-root-docker-runtime-with-cipherguard-php:
+  extends: .test-images
+  variables:
+    TEST_NAME: docker_runtime_with_cipherguard_php
+    ROOTLESS: "true"

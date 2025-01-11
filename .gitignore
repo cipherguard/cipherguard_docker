@@ -1,0 +1,10 @@
+# Generated docker files
+conf/*.key
+
+.bundle
+
+# docker compose specific
+dev/.env
+*.vim
+vendor
+*subscription_key.txt

@@ -1,0 +1,229 @@
+.build:
+  extends: .rules
+  stage: build
+  image:
+    name: gcr.io/kaniko-project/executor:debug
+    entrypoint: [""]
+  variables:
+    COMPONENT: "testing"
+    API_IMAGE_SOURCE: "https://github.com/cipherguard/cipherguard_api"
+    IMAGE_DESCRIPTION: "Cipherguard CE Backend, a JSON API written with CakePHP"
+  script:
+    - |
+      cat << EOF > /kaniko/.docker/config.json
+      {
+          "auths": {
+              "https://index.docker.io/v1/": {
+                  "auth": "${AUTH_STRING_DOCKER_HUB}"
+              },
+              "$CI_REGISTRY": {
+                  "username": "${CI_REGISTRY_USER}",
+                  "password": "${CI_REGISTRY_PASSWORD}"
+              }
+          }
+      }
+      EOF
+    - |
+      echo "********************************************"
+      echo "Build details"
+      echo "============================================"
+      echo "Flavour ${CIPHERGUARD_FLAVOUR:-local}"
+      echo "Commit  ${UPSTREAM_COMMIT_SHA:-latest}"
+      echo "********************************************"
+    - |
+      /kaniko/executor --context $CI_PROJECT_DIR \
+        --build-arg API_REPOSITORY="${API_IMAGE_SOURCE}" \
+        --build-arg BUILD_DATE="$(date -u +'%Y-%m-%dT%H:%M:%SZ')" \
+        --build-arg IMAGE_DESCRIPTION="${IMAGE_DESCRIPTION}" \
+        --build-arg CIPHERGUARD_COMPONENT="$COMPONENT" \
+        --build-arg CIPHERGUARD_FLAVOUR="$CIPHERGUARD_FLAVOUR" \
+        --build-arg SUPERCRONIC_ARCH="${SUPERCRONIC_ARCH}" \
+        --build-arg SUPERCRONIC_SHA1SUM="${SUPERCRONIC_SHA1SUM}" \
+        --dockerfile $CI_PROJECT_DIR/$DOCKERFILE_PATH \
+        --custom-platform $PLATFORM \
+        --destination $CI_REGISTRY_IMAGE:${CIPHERGUARD_FLAVOUR:-local}-${DOCKER_TAG}-$(date +%s) \
+        --destination $CI_REGISTRY_IMAGE:${CIPHERGUARD_FLAVOUR:-local}-${DOCKER_TAG}-latest
+
+.stable-build:
+  extends: .build
+  variables:
+    COMPONENT: "stable"
+    CIPHERGUARD_FLAVOUR: "ce"
+    OPPOSITE_FLAVOUR: "pro"
+
+.stable-build-pro:
+  extends: .build
+  variables:
+    API_IMAGE_SOURCE: "https://bitbucket.org/cipherguard_pro/cipherguard_pro_api"
+    COMPONENT: "stable"
+    IMAGE_DESCRIPTION: "Cipherguard PRO Backend, a JSON API written with CakePHP"
+    CIPHERGUARD_FLAVOUR: "pro"
+    OPPOSITE_FLAVOUR: "ce"
+
+build-ce-stable-docker:
+  extends: .stable-build
+  variables:
+    DOCKERFILE_PATH: "debian/Dockerfile"
+    DOCKER_TAG: "root"
+    SUPERCRONIC_ARCH: amd64
+    SUPERCRONIC_SHA1SUM: 642f4f5a2b67f3400b5ea71ff24f18c0a7d77d49
+    PLATFORM: "linux/amd64"
+
+build-ce-stable-rootless:
+  extends: .stable-build
+  variables:
+    DOCKERFILE_PATH: "debian/Dockerfile.rootless"
+    DOCKER_TAG: "rootless"
+    SUPERCRONIC_ARCH: amd64
+    SUPERCRONIC_SHA1SUM: fe1a81a8a5809deebebbd7a209a3b97e542e2bcd
+    PLATFORM: "linux/amd64"
+
+build-pro-stable-docker:
+  extends: .stable-build-pro
+  variables:
+    DOCKERFILE_PATH: "debian/Dockerfile"
+    DOCKER_TAG: "root"
+    SUPERCRONIC_ARCH: amd64
+    SUPERCRONIC_SHA1SUM: 642f4f5a2b67f3400b5ea71ff24f18c0a7d77d49
+    PLATFORM: "linux/amd64"
+
+build-pro-stable-rootless:
+  extends: .stable-build-pro
+  variables:
+    DOCKERFILE_PATH: "debian/Dockerfile.rootless"
+    DOCKER_TAG: "rootless"
+    SUPERCRONIC_ARCH: amd64
+    SUPERCRONIC_SHA1SUM: fe1a81a8a5809deebebbd7a209a3b97e542e2bcd
+    PLATFORM: "linux/amd64"
+
+build-ce-stable-docker-arm64-v8:
+  tags:
+    - arm
+  extends: .stable-build
+  variables:
+    DOCKERFILE_PATH: "debian/Dockerfile"
+    DOCKER_TAG: "root-arm64-v8"
+    PLATFORM: "linux/arm64/v8"
+    SUPERCRONIC_ARCH: arm64
+    SUPERCRONIC_SHA1SUM: 6f2247cb06a0845e3e4ae1b5c95e4d0ed0dcfedd
+
+build-ce-stable-rootless-arm64-v8:
+  tags:
+    - arm
+  extends: .stable-build
+  variables:
+    DOCKERFILE_PATH: "debian/Dockerfile.rootless"
+    DOCKER_TAG: "rootless-arm64-v8"
+    PLATFORM: "linux/arm64/v8"
+    SUPERCRONIC_ARCH: arm64
+    SUPERCRONIC_SHA1SUM: 6f2247cb06a0845e3e4ae1b5c95e4d0ed0dcfedd
+
+build-pro-stable-docker-arm64-v8:
+  tags:
+    - arm
+  extends: .stable-build-pro
+  variables:
+    DOCKERFILE_PATH: "debian/Dockerfile"
+    DOCKER_TAG: "root-arm64-v8"
+    PLATFORM: "linux/arm64/v8"
+    SUPERCRONIC_ARCH: arm64
+    SUPERCRONIC_SHA1SUM: 6f2247cb06a0845e3e4ae1b5c95e4d0ed0dcfedd
+
+build-pro-stable-rootless-arm64-v8:
+  tags:
+    - arm
+  extends: .stable-build-pro
+  variables:
+    DOCKERFILE_PATH: "debian/Dockerfile.rootless"
+    DOCKER_TAG: "rootless-arm64-v8"
+    PLATFORM: "linux/arm64/v8"
+    SUPERCRONIC_ARCH: arm64
+    SUPERCRONIC_SHA1SUM: 6f2247cb06a0845e3e4ae1b5c95e4d0ed0dcfedd
+
+build-ce-stable-docker-arm-v5:
+  tags:
+    - arm
+  extends: .stable-build
+  variables:
+    DOCKERFILE_PATH: "debian/Dockerfile"
+    DOCKER_TAG: "root-arm-v5"
+    PLATFORM: "linux/arm/v5"
+    SUPERCRONIC_ARCH: arm
+    SUPERCRONIC_SHA1SUM: 57cf7d4f0b85255bc45150ff6603358ffdfc3a00
+
+build-ce-stable-rootless-arm-v5:
+  tags:
+    - arm
+  extends: .stable-build
+  variables:
+    DOCKERFILE_PATH: "debian/Dockerfile.rootless"
+    DOCKER_TAG: "rootless-arm-v5"
+    PLATFORM: "linux/arm/v5"
+    SUPERCRONIC_ARCH: arm
+    SUPERCRONIC_SHA1SUM: 57cf7d4f0b85255bc45150ff6603358ffdfc3a00
+
+build-pro-stable-docker-arm-v5:
+  tags:
+    - arm
+  extends: .stable-build-pro
+  variables:
+    DOCKERFILE_PATH: "debian/Dockerfile"
+    DOCKER_TAG: "root-arm-v5"
+    PLATFORM: "linux/arm/v5"
+    SUPERCRONIC_ARCH: arm
+    SUPERCRONIC_SHA1SUM: 57cf7d4f0b85255bc45150ff6603358ffdfc3a00
+
+build-pro-stable-rootless-arm-v5:
+  tags:
+    - arm
+  extends: .stable-build-pro
+  variables:
+    DOCKERFILE_PATH: "debian/Dockerfile.rootless"
+    DOCKER_TAG: "rootless-arm-v5"
+    PLATFORM: "linux/arm/v5"
+    SUPERCRONIC_ARCH: arm
+    SUPERCRONIC_SHA1SUM: 57cf7d4f0b85255bc45150ff6603358ffdfc3a00
+
+build-ce-stable-docker-arm-v7:
+  tags:
+    - arm
+  extends: .stable-build
+  variables:
+    DOCKERFILE_PATH: "debian/Dockerfile"
+    DOCKER_TAG: "root-arm-v7"
+    PLATFORM: "linux/arm/v7"
+    SUPERCRONIC_ARCH: arm
+    SUPERCRONIC_SHA1SUM: 57cf7d4f0b85255bc45150ff6603358ffdfc3a00
+
+build-ce-stable-rootless-arm-v7:
+  tags:
+    - arm
+  extends: .stable-build
+  variables:
+    DOCKERFILE_PATH: "debian/Dockerfile.rootless"
+    DOCKER_TAG: "rootless-arm-v7"
+    PLATFORM: "linux/arm/v7"
+    SUPERCRONIC_ARCH: arm
+    SUPERCRONIC_SHA1SUM: 57cf7d4f0b85255bc45150ff6603358ffdfc3a00
+
+build-pro-stable-docker-arm-v7:
+  tags:
+    - arm
+  extends: .stable-build-pro
+  variables:
+    DOCKERFILE_PATH: "debian/Dockerfile"
+    DOCKER_TAG: "root-arm-v7"
+    PLATFORM: "linux/arm/v7"
+    SUPERCRONIC_ARCH: arm
+    SUPERCRONIC_SHA1SUM: 57cf7d4f0b85255bc45150ff6603358ffdfc3a00
+
+build-pro-stable-rootless-arm-v7:
+  tags:
+    - arm
+  extends: .stable-build-pro
+  variables:
+    DOCKERFILE_PATH: "debian/Dockerfile.rootless"
+    DOCKER_TAG: "rootless-arm-v7"
+    PLATFORM: "linux/arm/v7"
+    SUPERCRONIC_ARCH: arm
+    SUPERCRONIC_SHA1SUM: 57cf7d4f0b85255bc45150ff6603358ffdfc3a00

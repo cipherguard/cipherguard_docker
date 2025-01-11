@@ -1,0 +1,38 @@
+.test-vulnerabilities:
+  extends: .rules
+  stage: test-vulnerabilities
+  image:
+    name: ${CI_DEPENDENCY_PROXY_DIRECT_GROUP_IMAGE_PREFIX}/aquasec/trivy:latest
+    entrypoint: [""]
+  variables:
+    TRIVY_USERNAME: $CI_REGISTRY_USER
+    TRIVY_PASSWORD: $CI_REGISTRY_PASSWORD
+    DOCKER_TAG: root
+  script:
+    - trivy image --ignore-unfixed $CI_REGISTRY_IMAGE:${CIPHERGUARD_FLAVOUR}-${DOCKER_TAG}-latest
+
+docker-ce:
+  extends: .test-vulnerabilities
+  variables:
+    CIPHERGUARD_FLAVOUR: "ce"
+    OPPOSITE_FLAVOUR: "pro"
+
+docker-ce-rootless:
+  extends: .test-vulnerabilities
+  variables:
+    CIPHERGUARD_FLAVOUR: "ce"
+    DOCKER_TAG: "rootless"
+    OPPOSITE_FLAVOUR: "pro"
+
+docker-pro:
+  extends: .test-vulnerabilities
+  variables:
+    CIPHERGUARD_FLAVOUR: "pro"
+    OPPOSITE_FLAVOUR: "ce"
+
+docker-pro-rootless:
+  extends: .test-vulnerabilities
+  variables:
+    CIPHERGUARD_FLAVOUR: "pro"
+    DOCKER_TAG: "rootless"
+    OPPOSITE_FLAVOUR: "ce"
